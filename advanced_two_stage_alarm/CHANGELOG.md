@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.1b2 - 2026-03-06
+
+- Fixed Home Assistant Supervisor token handling.
+- Added fallback token sources (`SUPERVISOR_TOKEN`, `HASSIO_TOKEN`, `HA_TOKEN`, supervisor token files).
+- Add-on no longer exits immediately when token is temporarily unavailable; it retries connection.
+
 ## 0.0.1b1 - 2026-03-06
 
 - Initial beta release of Advanced Two-Stage Alarm add-on.

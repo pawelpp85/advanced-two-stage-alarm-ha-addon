@@ -23,4 +23,4 @@ Use this URL in Supervisor -> Add-on Store -> Repositories:
 
 ## Version
 
-Current beta: `0.0.1b1`
+Current beta: `0.0.1b2`
