@@ -180,13 +180,6 @@ h2 {
   margin-bottom: 0.8rem;
 }
 
-.trigger-source-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-  margin-bottom: 0.7rem;
-}
-
 .key {
   margin: 0 0 0.25rem;
   color: var(--text-subtle);
@@ -552,7 +545,6 @@ pre.text-box {
   }
 
   .states,
-  .trigger-source-grid,
   .form-grid,
   .entity-meta-row,
   .profile-item,

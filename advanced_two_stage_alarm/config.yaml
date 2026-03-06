@@ -1,5 +1,5 @@
 name: Advanced Two-Stage Alarm
-version: 0.0.1b6
+version: 0.0.1b7
 slug: advanced_two_stage_alarm
 description: Two-stage alarm manager with profiles and rich entity selection UI
 url: https://github.com/pawelpp85/advanced-two-stage-alarm-ha-addon

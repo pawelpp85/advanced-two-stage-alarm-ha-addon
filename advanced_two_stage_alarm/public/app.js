@@ -71,17 +71,9 @@ function showNotice(message, isError = false) {
 }
 
 function buildTriggerTemplate(entityId) {
-  const normalized = String(entityId || "").trim();
+  const normalized = String(entityId || "alarm_control_panel.two_stage_main").trim();
   const escapedEntityId = normalized.replaceAll("'", "\\'");
-  return [
-    `# Source entity: ${normalized}`,
-    `{{ state_attr('${escapedEntityId}', 'trigger_text') }}`,
-    `{{ state_attr('${escapedEntityId}', 'trigger_text_tts') }}`,
-    `{{ state_attr('${escapedEntityId}', 'trigger_entities') }}`,
-    `{{ state_attr('${escapedEntityId}', 'last_trigger_text') }}`,
-    `{{ state_attr('${escapedEntityId}', 'last_trigger_text_tts') }}`,
-    `{{ state_attr('${escapedEntityId}', 'last_trigger_at') }}`
-  ].join("\n");
+  return `{{ state_attr('${escapedEntityId}', 'trigger_text') }}`;
 }
 
 async function copyText(text) {
@@ -154,22 +146,12 @@ function renderStatus() {
   $("disarmWarningButton").disabled = !status.connectedToHa || !status.systemArmed;
 }
 
-function renderTriggerSources() {
+function renderTriggerTemplate() {
   if (!state.bootstrap) {
     return;
   }
-  const warningEntityId = state.bootstrap.config?.panelEntities?.warning || "alarm_control_panel.two_stage_warning";
   const mainEntityId = state.bootstrap.config?.panelEntities?.main || "alarm_control_panel.two_stage_main";
-
-  $("triggerWarningEntityId").textContent = warningEntityId;
-  $("triggerMainEntityId").textContent = mainEntityId;
-  $("triggerTemplatePreview").textContent = [
-    "Main alarm template:",
-    buildTriggerTemplate(mainEntityId),
-    "",
-    "Warning alarm template:",
-    buildTriggerTemplate(warningEntityId)
-  ].join("\n");
+  $("triggerTemplatePreview").textContent = buildTriggerTemplate(mainEntityId);
 }
 
 function renderSettings() {
@@ -436,7 +418,7 @@ function renderProfileBoard() {
 }
 
 function renderAll() {
-  renderTriggerSources();
+  renderTriggerTemplate();
   renderStatus();
   renderSettings();
   renderProfiles();
@@ -564,23 +546,13 @@ function registerEventHandlers() {
   $("warningEntityIdInput").addEventListener("input", schedulePanelEntitySuggestionFetch);
   $("mainEntityIdInput").addEventListener("input", schedulePanelEntitySuggestionFetch);
 
-  $("copyWarningTemplateButton").addEventListener("click", async () => {
-    try {
-      const warningEntityId = state.bootstrap?.config?.panelEntities?.warning;
-      await copyText(buildTriggerTemplate(warningEntityId));
-      showNotice("Warning templates copied.");
-    } catch (error) {
-      showNotice(error.message || "Failed to copy templates.", true);
-    }
-  });
-
-  $("copyMainTemplateButton").addEventListener("click", async () => {
+  $("copyTriggerTemplateButton").addEventListener("click", async () => {
     try {
       const mainEntityId = state.bootstrap?.config?.panelEntities?.main;
       await copyText(buildTriggerTemplate(mainEntityId));
-      showNotice("Main templates copied.");
+      showNotice("Template copied.");
     } catch (error) {
-      showNotice(error.message || "Failed to copy templates.", true);
+      showNotice(error.message || "Failed to copy template.", true);
     }
   });
 

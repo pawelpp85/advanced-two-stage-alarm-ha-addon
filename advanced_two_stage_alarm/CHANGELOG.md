@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.1b7 - 2026-03-06
+
+- Simplified Trigger Reason template section to one template only:
+  - `{{ state_attr('<main_alarm_entity_id>', 'trigger_text') }}`
+- Kept one copy button for this single template.
+
 ## 0.0.1b6 - 2026-03-06
 
 - Added Trigger Reason source section with explicit warning/main `entity_id` values.
