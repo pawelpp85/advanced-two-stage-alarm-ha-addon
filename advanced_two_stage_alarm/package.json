@@ -1,6 +1,6 @@
 {
   "name": "advanced-two-stage-alarm-ha-addon",
-  "version": "0.0.1b2",
+  "version": "0.0.1b3",
   "description": "Home Assistant add-on for two-stage alarm management",
   "main": "server.js",
   "license": "Apache-2.0",

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.1b3 - 2026-03-06
+
+- Fixed ingress path handling for frontend assets and API calls.
+- Replaced absolute UI paths with ingress-safe relative paths.
+- Added dynamic `<base>` path setup so CSS/JS load correctly when add-on is opened under `/app/<slug>` style URLs.
+
 ## 0.0.1b2 - 2026-03-06
 
 - Fixed Home Assistant Supervisor token handling.

@@ -8,6 +8,7 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+const ABSOLUTE_URL_PATTERN = /^[a-z]+:\/\//i;
 
 function escapeHtml(value) {
   return String(value || "")
@@ -19,6 +20,7 @@ function escapeHtml(value) {
 }
 
 async function api(url, options = {}) {
+  const requestUrl = ABSOLUTE_URL_PATTERN.test(url) ? url : String(url || "").replace(/^\/+/, "");
   const config = {
     method: options.method || "GET",
     headers: {
@@ -29,7 +31,7 @@ async function api(url, options = {}) {
     config.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(url, config);
+  const response = await fetch(requestUrl, config);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.ok === false) {
     throw new Error(payload.error || `Request failed: ${response.status}`);
@@ -261,14 +263,14 @@ function renderAll() {
 }
 
 async function refreshBootstrap() {
-  const payload = await api("/api/bootstrap");
+  const payload = await api("api/bootstrap");
   applyBootstrap(payload);
 }
 
 async function searchEntities() {
   const query = $("entitySearchInput").value.trim();
   state.searchQuery = query;
-  const payload = await api(`/api/entities?query=${encodeURIComponent(query)}&limit=80`);
+  const payload = await api(`api/entities?query=${encodeURIComponent(query)}&limit=80`);
   state.searchResults = payload.entities || [];
   renderSearchResults();
 }
@@ -311,22 +313,22 @@ function getEntityPatch(entityId) {
 
 function registerEventHandlers() {
   $("armButton").addEventListener("click", () => {
-    postAction("/api/actions/arm", { armed: true }).catch((error) => showNotice(error.message, true));
+    postAction("api/actions/arm", { armed: true }).catch((error) => showNotice(error.message, true));
   });
   $("disarmButton").addEventListener("click", () => {
-    postAction("/api/actions/arm", { armed: false }).catch((error) => showNotice(error.message, true));
+    postAction("api/actions/arm", { armed: false }).catch((error) => showNotice(error.message, true));
   });
   $("disarmWarningButton").addEventListener("click", () => {
-    postAction("/api/actions/disarm-warning", {}).catch((error) => showNotice(error.message, true));
+    postAction("api/actions/disarm-warning", {}).catch((error) => showNotice(error.message, true));
   });
 
   $("activeProfileSelect").addEventListener("change", (event) => {
-    postAction("/api/actions/select-profile", { profileId: event.target.value }).catch((error) => showNotice(error.message, true));
+    postAction("api/actions/select-profile", { profileId: event.target.value }).catch((error) => showNotice(error.message, true));
   });
 
   $("saveTimingButton").addEventListener("click", async () => {
     try {
-      const payload = await api("/api/settings/timings", {
+      const payload = await api("api/settings/timings", {
         method: "POST",
         body: {
           warningDelaySec: Number($("warningDelayInput").value),
@@ -342,7 +344,7 @@ function registerEventHandlers() {
 
   $("savePanelEntitiesButton").addEventListener("click", async () => {
     try {
-      const payload = await api("/api/settings/panel-entities", {
+      const payload = await api("api/settings/panel-entities", {
         method: "POST",
         body: {
           warning: $("warningEntityIdInput").value.trim(),
@@ -359,7 +361,7 @@ function registerEventHandlers() {
   $("addProfileButton").addEventListener("click", async () => {
     try {
       const name = $("newProfileNameInput").value.trim() || "New profile";
-      const payload = await api("/api/profiles", {
+      const payload = await api("api/profiles", {
         method: "POST",
         body: { name }
       });
@@ -380,7 +382,7 @@ function registerEventHandlers() {
       const profileId = profileRow.dataset.profileId;
 
       if (event.target.matches('input[type="radio"][name="profileActive"]')) {
-        const payload = await api("/api/actions/select-profile", {
+        const payload = await api("api/actions/select-profile", {
           method: "POST",
           body: { profileId }
         });
@@ -388,7 +390,7 @@ function registerEventHandlers() {
         return;
       }
       if (event.target.matches('input[data-role="profile-name"]')) {
-        const payload = await api(`/api/profiles/${encodeURIComponent(profileId)}`, {
+        const payload = await api(`api/profiles/${encodeURIComponent(profileId)}`, {
           method: "PATCH",
           body: { name: event.target.value }
         });
@@ -407,7 +409,7 @@ function registerEventHandlers() {
     }
     const profileId = button.closest("[data-profile-id]").dataset.profileId;
     try {
-      const payload = await api(`/api/profiles/${encodeURIComponent(profileId)}`, { method: "DELETE" });
+      const payload = await api(`api/profiles/${encodeURIComponent(profileId)}`, { method: "DELETE" });
       applyBootstrap(payload);
       showNotice("Profile removed.");
     } catch (error) {
@@ -423,7 +425,7 @@ function registerEventHandlers() {
       return;
     }
     try {
-      const payload = await api("/api/monitored", {
+      const payload = await api("api/monitored", {
         method: "POST",
         body: {
           entity_id: button.dataset.entityId,
@@ -445,7 +447,7 @@ function registerEventHandlers() {
     const entityId = actionButton.dataset.entityId;
     try {
       if (actionButton.dataset.action === "save-entity") {
-        const payload = await api(`/api/monitored/${encodeURIComponent(entityId)}`, {
+        const payload = await api(`api/monitored/${encodeURIComponent(entityId)}`, {
           method: "PATCH",
           body: getEntityPatch(entityId)
         });
@@ -455,7 +457,7 @@ function registerEventHandlers() {
       }
 
       if (actionButton.dataset.action === "remove-entity") {
-        const payload = await api(`/api/monitored/${encodeURIComponent(entityId)}`, { method: "DELETE" });
+        const payload = await api(`api/monitored/${encodeURIComponent(entityId)}`, { method: "DELETE" });
         applyBootstrap(payload);
         showNotice("Entity removed.");
         return;
@@ -463,7 +465,7 @@ function registerEventHandlers() {
 
       if (actionButton.dataset.action === "suggest-message") {
         const suggestion = await api(
-          `/api/suggest-message?entity_id=${encodeURIComponent(entityId)}&lang=${encodeURIComponent(state.language)}`
+          `api/suggest-message?entity_id=${encodeURIComponent(entityId)}&lang=${encodeURIComponent(state.language)}`
         );
         const card = getEntityCard(entityId);
         card.querySelector('[data-field="message"]').value = suggestion.message || "";
@@ -484,7 +486,7 @@ function registerEventHandlers() {
     }
     try {
       const payload = await api(
-        `/api/profiles/${encodeURIComponent(checkbox.dataset.profileId)}/entities/${encodeURIComponent(
+        `api/profiles/${encodeURIComponent(checkbox.dataset.profileId)}/entities/${encodeURIComponent(
           checkbox.dataset.entityId
         )}`,
         {
@@ -503,7 +505,7 @@ function registerEventHandlers() {
 }
 
 function connectEventStream() {
-  const source = new EventSource("/api/stream");
+  const source = new EventSource("api/stream");
 
   source.addEventListener("bootstrap", (event) => {
     const payload = JSON.parse(event.data);
