@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Two-Stage Alarm Manager</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="background-shape background-shape-a"></div>
+    <div class="background-shape background-shape-b"></div>
+
+    <main class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Home Assistant Add-on</p>
+          <h1>Two-Stage Alarm Manager</h1>
+          <p class="subtitle">Manage warning and main alarm triggers with profiles and clear trigger reasons.</p>
+        </div>
+        <div class="connection-box">
+          <span id="connectionStatus" class="badge badge-muted">Connecting...</span>
+          <span id="armedStatus" class="badge badge-muted">System disarmed</span>
+        </div>
+      </header>
+
+      <section class="grid-two">
+        <article class="card">
+          <h2>Control</h2>
+          <div class="button-row">
+            <button id="armButton" class="btn btn-primary">Arm (armed_away)</button>
+            <button id="disarmButton" class="btn btn-secondary">Disarm</button>
+            <button id="disarmWarningButton" class="btn btn-warning">Disarm Warning Cycle</button>
+          </div>
+          <div class="states">
+            <div>
+              <p class="key">Warning panel</p>
+              <p id="warningState" class="value">disarmed</p>
+            </div>
+            <div>
+              <p class="key">Main panel</p>
+              <p id="mainState" class="value">disarmed</p>
+            </div>
+            <div>
+              <p class="key">Warning countdown</p>
+              <p id="warningCountdown" class="value">0 s</p>
+            </div>
+            <div>
+              <p class="key">Main alarm countdown</p>
+              <p id="mainCountdown" class="value">0 s</p>
+            </div>
+          </div>
+          <label for="activeProfileSelect" class="key profile-label">Active profile</label>
+          <select id="activeProfileSelect"></select>
+        </article>
+
+        <article class="card">
+          <h2>Trigger Reason Output</h2>
+          <p class="key">Formatted text (for UI/screens)</p>
+          <pre id="triggerText" class="text-box">No active trigger</pre>
+          <p class="key">Plain text (for TTS)</p>
+          <pre id="triggerTextTts" class="text-box">No active trigger</pre>
+          <p class="key">Last main alarm trigger</p>
+          <pre id="lastTriggerText" class="text-box">No main alarm triggered yet</pre>
+        </article>
+      </section>
+
+      <section class="grid-two">
+        <article class="card">
+          <h2>Timing and Panel Entity IDs</h2>
+          <div class="form-grid">
+            <label>
+              Warning delay (seconds)
+              <input id="warningDelayInput" type="number" min="5" max="900" />
+            </label>
+            <label>
+              Main alarm duration (seconds)
+              <input id="alarmDurationInput" type="number" min="5" max="7200" />
+            </label>
+            <button id="saveTimingButton" class="btn btn-primary">Save timing</button>
+          </div>
+
+          <div class="form-grid panel-grid">
+            <label>
+              Warning panel entity_id
+              <input id="warningEntityIdInput" type="text" />
+            </label>
+            <label>
+              Main panel entity_id
+              <input id="mainEntityIdInput" type="text" />
+            </label>
+            <button id="savePanelEntitiesButton" class="btn btn-secondary">Save panel IDs</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Profiles</h2>
+          <div class="profile-create-row">
+            <input id="newProfileNameInput" type="text" placeholder="Profile name (example: Sleep)" />
+            <button id="addProfileButton" class="btn btn-primary">Add profile</button>
+          </div>
+          <div id="profilesList" class="profile-list"></div>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Entity Discovery</h2>
+        <p class="helper">
+          Start typing to find entities. Results include current state and metadata to help identify the correct source.
+        </p>
+        <input id="entitySearchInput" type="text" placeholder="Search by name, state, area, device, model..." />
+        <div id="searchResults" class="search-results"></div>
+      </section>
+
+      <section class="card">
+        <h2>Monitored Triggers</h2>
+        <div id="monitoredContainer" class="monitored-grid"></div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

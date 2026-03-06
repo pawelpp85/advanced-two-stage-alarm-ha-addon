@@ -1,0 +1,16 @@
+{
+  "name": "advanced-two-stage-alarm-ha-addon",
+  "version": "0.0.1b1",
+  "description": "Home Assistant add-on for two-stage alarm management",
+  "main": "server.js",
+  "license": "Apache-2.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check lib/haClient.js && node --check lib/store.js && node --check lib/alarmEngine.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
