@@ -1,4 +1,5 @@
 const { EventEmitter } = require("events");
+const fs = require("fs");
 const WebSocket = require("ws");
 
 class HomeAssistantClient extends EventEmitter {
@@ -6,7 +7,11 @@ class HomeAssistantClient extends EventEmitter {
     super();
     this.wsUrl = options.wsUrl || process.env.HA_WS_URL || "ws://supervisor/core/websocket";
     this.apiBaseUrl = options.apiBaseUrl || process.env.HA_API_URL || "http://supervisor/core/api";
-    this.token = options.token || process.env.SUPERVISOR_TOKEN || "";
+    this.token = String(options.token || "").trim();
+    this.tokenFileCandidates = [
+      "/run/s6/container_environment/SUPERVISOR_TOKEN",
+      "/run/secrets/supervisor_token"
+    ];
 
     this.ws = null;
     this.ready = false;
@@ -15,12 +20,26 @@ class HomeAssistantClient extends EventEmitter {
     this.reconnectDelayMs = 2500;
     this.reconnectTimer = null;
     this.eventSubscriptionId = null;
+    this.missingTokenReported = false;
   }
 
   connect() {
-    if (!this.token) {
-      throw new Error("Missing SUPERVISOR_TOKEN for Home Assistant API communication.");
+    const resolvedToken = this._resolveToken();
+    if (!resolvedToken) {
+      if (!this.missingTokenReported) {
+        this.emit(
+          "error",
+          new Error(
+            "Missing SUPERVISOR_TOKEN for Home Assistant API communication. Checked env vars and supervisor token files."
+          )
+        );
+      }
+      this.missingTokenReported = true;
+      this._scheduleReconnect();
+      return;
     }
+    this.missingTokenReported = false;
+    this.token = resolvedToken;
     this._connectSocket();
   }
 
@@ -93,9 +112,39 @@ class HomeAssistantClient extends EventEmitter {
     }
     this.pending.clear();
     this.emit("disconnected");
+    this._scheduleReconnect();
+  }
 
+  _scheduleReconnect() {
     clearTimeout(this.reconnectTimer);
-    this.reconnectTimer = setTimeout(() => this._connectSocket(), this.reconnectDelayMs);
+    this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelayMs);
+  }
+
+  _resolveToken() {
+    const envCandidates = [
+      this.token,
+      process.env.SUPERVISOR_TOKEN,
+      process.env.HASSIO_TOKEN,
+      process.env.HA_TOKEN
+    ];
+    for (const candidate of envCandidates) {
+      const value = String(candidate || "").trim();
+      if (value) {
+        return value;
+      }
+    }
+
+    for (const tokenPath of this.tokenFileCandidates) {
+      try {
+        const value = fs.readFileSync(tokenPath, "utf8").trim();
+        if (value) {
+          return value;
+        }
+      } catch (_error) {
+        continue;
+      }
+    }
+    return "";
   }
 
   sendCommand(type, payload = {}, timeoutMs = 10000) {
@@ -149,6 +198,12 @@ class HomeAssistantClient extends EventEmitter {
   }
 
   async setState(entityId, state, attributes = {}) {
+    if (!this.token) {
+      this.token = this._resolveToken();
+    }
+    if (!this.token) {
+      throw new Error("Cannot call Home Assistant state API without SUPERVISOR_TOKEN.");
+    }
     const response = await fetch(`${this.apiBaseUrl}/states/${entityId}`, {
       method: "POST",
       headers: {
