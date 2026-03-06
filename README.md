@@ -14,6 +14,7 @@ Features:
 - profile-based trigger sets,
 - rich trigger-reason text for UI and TTS,
 - WS communication with Home Assistant.
+- persisted config in `/data/two_stage_alarm_config.json` (included in add-on backup).
 
 ## Add Repository in Home Assistant
 
@@ -23,4 +24,4 @@ Use this URL in Supervisor -> Add-on Store -> Repositories:
 
 ## Version
 
-Current beta: `0.0.1b4`
+Current beta: `0.0.1b5`

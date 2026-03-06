@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.1b5 - 2026-03-06
+
+- Documented persistent storage path for profiles/entities (`/data/two_stage_alarm_config.json`).
+- Explicitly enabled add-on backup metadata in manifest (`backup: hot`, `backup_exclude: []`) to keep config included in add-on backups.
+
 ## 0.0.1b4 - 2026-03-06
 
 - Added HA-driven trigger state suggestions per monitored entity.

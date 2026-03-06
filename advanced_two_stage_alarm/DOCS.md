@@ -9,7 +9,7 @@ Two-stage alarm manager for Home Assistant with:
 
 ## Release Status
 
-- Current version: `0.0.1b4`
+- Current version: `0.0.1b5`
 - Channel: `beta`
 - Repository: `git@github-nuc:pawelpp85/advanced-two-stage-alarm-ha-addon.git`
 
@@ -86,6 +86,15 @@ mode: single
 ## No Add-on Options Required
 
 `config.yaml` has empty `options` and empty `schema`. All setup is in UI.
+
+## Data and Backup
+
+- Profiles, monitored entities, trigger settings and active profile are stored in:
+  - `/data/two_stage_alarm_config.json`
+- Add-on manifest explicitly enables backup support:
+  - `backup: hot`
+  - `backup_exclude: []`
+- As a result, this data file is included in standard Home Assistant add-on backups.
 
 ## API Summary
 

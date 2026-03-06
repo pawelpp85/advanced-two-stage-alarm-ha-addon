@@ -1,5 +1,5 @@
 name: Advanced Two-Stage Alarm
-version: 0.0.1b4
+version: 0.0.1b5
 slug: advanced_two_stage_alarm
 description: Two-stage alarm manager with profiles and rich entity selection UI
 url: https://github.com/pawelpp85/advanced-two-stage-alarm-ha-addon
@@ -19,5 +19,7 @@ panel_icon: mdi:shield-home
 hassio_api: true
 homeassistant_api: true
 auth_api: true
+backup: hot
+backup_exclude: []
 options: {}
 schema: {}
