@@ -66,6 +66,25 @@
 
         <article class="card">
           <h2>Trigger Reason Output</h2>
+          <p class="helper">
+            Trigger reason values are exposed as attributes on the two alarm panel entities (not separate helper entities).
+          </p>
+          <div class="trigger-source-grid">
+            <div>
+              <p class="key">Warning source entity_id</p>
+              <p id="triggerWarningEntityId" class="entity-id">alarm_control_panel.two_stage_warning</p>
+            </div>
+            <div>
+              <p class="key">Main source entity_id</p>
+              <p id="triggerMainEntityId" class="entity-id">alarm_control_panel.two_stage_main</p>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="copyWarningTemplateButton" class="btn btn-secondary">Copy warning templates</button>
+            <button id="copyMainTemplateButton" class="btn btn-secondary">Copy main templates</button>
+          </div>
+          <p class="key">Template preview</p>
+          <pre id="triggerTemplatePreview" class="text-box">Templates will appear here.</pre>
           <p class="key">Formatted text (for UI/screens)</p>
           <pre id="triggerText" class="text-box">No active trigger</pre>
           <p class="key">Plain text (for TTS)</p>

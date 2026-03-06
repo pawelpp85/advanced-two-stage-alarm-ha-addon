@@ -70,6 +70,37 @@ function showNotice(message, isError = false) {
   }, 3600);
 }
 
+function buildTriggerTemplate(entityId) {
+  const normalized = String(entityId || "").trim();
+  const escapedEntityId = normalized.replaceAll("'", "\\'");
+  return [
+    `# Source entity: ${normalized}`,
+    `{{ state_attr('${escapedEntityId}', 'trigger_text') }}`,
+    `{{ state_attr('${escapedEntityId}', 'trigger_text_tts') }}`,
+    `{{ state_attr('${escapedEntityId}', 'trigger_entities') }}`,
+    `{{ state_attr('${escapedEntityId}', 'last_trigger_text') }}`,
+    `{{ state_attr('${escapedEntityId}', 'last_trigger_text_tts') }}`,
+    `{{ state_attr('${escapedEntityId}', 'last_trigger_at') }}`
+  ].join("\n");
+}
+
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "readonly");
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  document.execCommand("copy");
+  document.body.removeChild(area);
+}
+
 function applyBootstrap(payload) {
   state.bootstrap = {
     config: payload.config,
@@ -121,6 +152,24 @@ function renderStatus() {
   $("armButton").disabled = !status.connectedToHa;
   $("disarmButton").disabled = !status.connectedToHa;
   $("disarmWarningButton").disabled = !status.connectedToHa || !status.systemArmed;
+}
+
+function renderTriggerSources() {
+  if (!state.bootstrap) {
+    return;
+  }
+  const warningEntityId = state.bootstrap.config?.panelEntities?.warning || "alarm_control_panel.two_stage_warning";
+  const mainEntityId = state.bootstrap.config?.panelEntities?.main || "alarm_control_panel.two_stage_main";
+
+  $("triggerWarningEntityId").textContent = warningEntityId;
+  $("triggerMainEntityId").textContent = mainEntityId;
+  $("triggerTemplatePreview").textContent = [
+    "Main alarm template:",
+    buildTriggerTemplate(mainEntityId),
+    "",
+    "Warning alarm template:",
+    buildTriggerTemplate(warningEntityId)
+  ].join("\n");
 }
 
 function renderSettings() {
@@ -387,6 +436,7 @@ function renderProfileBoard() {
 }
 
 function renderAll() {
+  renderTriggerSources();
   renderStatus();
   renderSettings();
   renderProfiles();
@@ -513,6 +563,26 @@ function registerEventHandlers() {
 
   $("warningEntityIdInput").addEventListener("input", schedulePanelEntitySuggestionFetch);
   $("mainEntityIdInput").addEventListener("input", schedulePanelEntitySuggestionFetch);
+
+  $("copyWarningTemplateButton").addEventListener("click", async () => {
+    try {
+      const warningEntityId = state.bootstrap?.config?.panelEntities?.warning;
+      await copyText(buildTriggerTemplate(warningEntityId));
+      showNotice("Warning templates copied.");
+    } catch (error) {
+      showNotice(error.message || "Failed to copy templates.", true);
+    }
+  });
+
+  $("copyMainTemplateButton").addEventListener("click", async () => {
+    try {
+      const mainEntityId = state.bootstrap?.config?.panelEntities?.main;
+      await copyText(buildTriggerTemplate(mainEntityId));
+      showNotice("Main templates copied.");
+    } catch (error) {
+      showNotice(error.message || "Failed to copy templates.", true);
+    }
+  });
 
   $("addProfileButton").addEventListener("click", async () => {
     try {

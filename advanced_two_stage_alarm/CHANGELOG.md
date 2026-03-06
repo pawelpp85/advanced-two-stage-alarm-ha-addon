@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.1b6 - 2026-03-06
+
+- Added Trigger Reason source section with explicit warning/main `entity_id` values.
+- Clarified that trigger reason values are exposed as attributes on alarm panel entities (no separate helper entities).
+- Added one-click copy buttons for ready-to-use HA templates (`trigger_text`, `trigger_text_tts`, `trigger_entities`, last trigger fields).
+
 ## 0.0.1b5 - 2026-03-06
 
 - Documented persistent storage path for profiles/entities (`/data/two_stage_alarm_config.json`).
