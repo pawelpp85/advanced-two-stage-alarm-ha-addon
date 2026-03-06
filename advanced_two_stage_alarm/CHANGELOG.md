@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.1b4 - 2026-03-06
+
+- Added HA-driven trigger state suggestions per monitored entity.
+- Added optional transition rule (`fromStates` -> trigger state) to ignore unwanted transitions such as `unavailable -> on`.
+- Added alarm control panel suggestions from Home Assistant for warning and main panel entity IDs.
+- Improved monitored entity card layout and moved "Trigger main alarm immediately" closer to entity header.
+- Added profile board with per-profile tabs and drag-and-drop between Active and Quarantine lists.
+
 ## 0.0.1b3 - 2026-03-06
 
 - Fixed ingress path handling for frontend assets and API calls.

@@ -3,8 +3,10 @@ const state = {
   searchResults: [],
   searchQuery: "",
   searchTimer: null,
+  panelSuggestionTimer: null,
   language: navigator.language || "en",
-  noticeTimer: null
+  noticeTimer: null,
+  boardProfileId: null
 };
 
 const $ = (id) => document.getElementById(id);
@@ -17,6 +19,18 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function parseStateList(rawValue) {
+  return [...new Set(String(rawValue || "").split(",").map((entry) => entry.trim().toLowerCase()).filter(Boolean))];
+}
+
+function writeStateList(inputNode, states) {
+  inputNode.value = [...new Set(states.map((entry) => entry.trim().toLowerCase()).filter(Boolean))].join(", ");
+}
+
+function getProfileById(profileId) {
+  return state.bootstrap?.config?.profiles?.find((profile) => profile.id === profileId) || null;
 }
 
 async function api(url, options = {}) {
@@ -62,6 +76,11 @@ function applyBootstrap(payload) {
     status: payload.status,
     monitored: payload.monitored || []
   };
+
+  if (!state.boardProfileId || !getProfileById(state.boardProfileId)) {
+    state.boardProfileId = payload.config?.activeProfileId || payload.config?.profiles?.[0]?.id || null;
+  }
+
   renderAll();
 }
 
@@ -180,6 +199,28 @@ function isEnabledInProfile(profileId, entityId) {
   return profile.enabledEntities.includes(entityId);
 }
 
+function renderStatePills(entityId, fieldName, selectedValues, stateOptions) {
+  const selected = new Set((selectedValues || []).map((value) => value.toLowerCase()));
+  const options = [...new Set([...(stateOptions || []), ...selectedValues])].filter(Boolean);
+  if (!options.length) {
+    return '<p class="search-meta">No HA state suggestions yet for this entity.</p>';
+  }
+
+  return options
+    .map((stateValue) => {
+      const active = selected.has(String(stateValue).toLowerCase());
+      return `<button
+        type="button"
+        class="state-pill ${active ? "state-pill-active" : ""}"
+        data-action="toggle-state"
+        data-entity-id="${escapeHtml(entityId)}"
+        data-field="${escapeHtml(fieldName)}"
+        data-state="${escapeHtml(stateValue)}"
+      >${escapeHtml(stateValue)}</button>`;
+    })
+    .join("");
+}
+
 function renderMonitoredEntities() {
   if (!state.bootstrap) {
     return;
@@ -191,14 +232,13 @@ function renderMonitoredEntities() {
     return;
   }
 
-  const profileChecksHeader = state.bootstrap.config.profiles
-    .map((profile) => `<span class="check-pill">${escapeHtml(profile.name)}</span>`)
-    .join("");
-
   container.innerHTML = monitored
     .map((entry) => {
       const details = entry.details || {};
       const triggerStates = (entry.triggerStates || []).join(", ");
+      const fromStates = (entry.fromStates || []).join(", ");
+      const statePillsTo = renderStatePills(entry.entity_id, "triggerStates", entry.triggerStates || [], entry.stateOptions || []);
+      const statePillsFrom = renderStatePills(entry.entity_id, "fromStates", entry.fromStates || [], entry.stateOptions || []);
       const profileChecks = state.bootstrap.config.profiles
         .map(
           (profile) => `
@@ -223,7 +263,10 @@ function renderMonitoredEntities() {
               <p class="entity-title">${escapeHtml(details.friendly_name || entry.entity_id)}</p>
               <p class="entity-id">${escapeHtml(entry.entity_id)}</p>
             </div>
-            <span class="badge ${entry.immediate ? "badge-warning" : "badge-muted"}">${entry.immediate ? "Immediate" : "Staged"}</span>
+            <div class="entity-head-right">
+              <span class="badge ${entry.immediate ? "badge-warning" : "badge-muted"}">${entry.immediate ? "Immediate" : "Staged"}</span>
+              <label class="inline-check"><input data-field="immediate" type="checkbox" ${entry.immediate ? "checked" : ""} /> Trigger main alarm immediately</label>
+            </div>
           </div>
 
           <div class="entity-meta-row">
@@ -233,14 +276,24 @@ function renderMonitoredEntities() {
             <p class="search-meta">Class: <strong>${escapeHtml(details.device_class || "-")}</strong></p>
           </div>
 
-          <label><input data-field="immediate" type="checkbox" ${entry.immediate ? "checked" : ""} /> Trigger main alarm immediately</label>
+          <div>
+            <p class="key">Trigger state (to) from HA</p>
+            <div class="state-pill-grid">${statePillsTo}</div>
+            <input data-field="triggerStates" value="${escapeHtml(triggerStates)}" placeholder="Example: on, open, detected" />
+          </div>
+
+          <div>
+            <p class="key">Allowed previous states (from, optional)</p>
+            <div class="state-pill-grid">${statePillsFrom}</div>
+            <input data-field="fromStates" value="${escapeHtml(fromStates)}" placeholder="Example: off, closed (empty = any previous state)" />
+          </div>
+
           <label>Display trigger message<textarea data-field="message" rows="2">${escapeHtml(entry.message || "")}</textarea></label>
           <label>TTS trigger message<textarea data-field="messageTts" rows="2">${escapeHtml(entry.messageTts || "")}</textarea></label>
-          <label>Trigger states (comma separated, optional)<input data-field="triggerStates" value="${escapeHtml(triggerStates)}" /></label>
 
           <div>
             <p class="key">Profile membership</p>
-            <div class="profile-check-grid">${profileChecks || profileChecksHeader}</div>
+            <div class="profile-check-grid">${profileChecks}</div>
           </div>
 
           <div class="entity-actions">
@@ -254,12 +307,92 @@ function renderMonitoredEntities() {
     .join("");
 }
 
+function renderProfileBoard() {
+  if (!state.bootstrap) {
+    return;
+  }
+  const profiles = state.bootstrap.config.profiles || [];
+  if (!profiles.length) {
+    $("profileBoardTabs").innerHTML = "";
+    $("profileBoard").innerHTML = `<p class="helper">No profiles available.</p>`;
+    return;
+  }
+
+  if (!state.boardProfileId || !profiles.some((profile) => profile.id === state.boardProfileId)) {
+    state.boardProfileId = profiles[0].id;
+  }
+
+  $("profileBoardTabs").innerHTML = profiles
+    .map(
+      (profile) => `
+      <button
+        type="button"
+        class="profile-tab ${profile.id === state.boardProfileId ? "profile-tab-active" : ""}"
+        data-action="select-board-profile"
+        data-profile-id="${escapeHtml(profile.id)}"
+      >${escapeHtml(profile.name)}</button>
+    `
+    )
+    .join("");
+
+  const activeProfile = profiles.find((profile) => profile.id === state.boardProfileId);
+  const enabled = new Set((activeProfile?.enabledEntities || []).map((entry) => entry.toLowerCase()));
+  const monitored = state.bootstrap.monitored || [];
+
+  const activeEntities = monitored.filter((entry) => enabled.has(entry.entity_id));
+  const quarantinedEntities = monitored.filter((entry) => !enabled.has(entry.entity_id));
+
+  const renderBoardItem = (entry, targetZone) => {
+    const title = escapeHtml(entry.details?.friendly_name || entry.entity_id);
+    return `
+      <div class="board-item" draggable="true" data-entity-id="${escapeHtml(entry.entity_id)}">
+        <div>
+          <p class="entity-title">${title}</p>
+          <p class="entity-id">${escapeHtml(entry.entity_id)}</p>
+        </div>
+        <button class="btn btn-secondary" data-action="board-move" data-entity-id="${escapeHtml(entry.entity_id)}" data-target-zone="${targetZone}">
+          ${targetZone === "quarantine" ? "Quarantine" : "Restore"}
+        </button>
+      </div>
+    `;
+  };
+
+  $("profileBoard").innerHTML = `
+    <div class="board-columns" data-profile-id="${escapeHtml(activeProfile.id)}">
+      <section class="board-column">
+        <header class="board-column-header">
+          <h3>Active</h3>
+          <span class="badge badge-success">${activeEntities.length}</span>
+        </header>
+        <div class="board-zone" data-zone="active" data-profile-id="${escapeHtml(activeProfile.id)}">
+          ${activeEntities.length ? activeEntities.map((entry) => renderBoardItem(entry, "quarantine")).join("") : '<p class="helper">No active entities.</p>'}
+        </div>
+      </section>
+
+      <section class="board-column">
+        <header class="board-column-header">
+          <h3>Quarantine</h3>
+          <span class="badge badge-warning">${quarantinedEntities.length}</span>
+        </header>
+        <div class="board-zone" data-zone="quarantine" data-profile-id="${escapeHtml(activeProfile.id)}">
+          ${
+            quarantinedEntities.length
+              ? quarantinedEntities.map((entry) => renderBoardItem(entry, "active")).join("")
+              : '<p class="helper">No quarantined entities.</p>'
+          }
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function renderAll() {
   renderStatus();
   renderSettings();
   renderProfiles();
   renderSearchResults();
   renderMonitoredEntities();
+  renderProfileBoard();
 }
 
 async function refreshBootstrap() {
@@ -282,6 +415,22 @@ function scheduleSearch() {
   }, 220);
 }
 
+async function refreshPanelEntitySuggestions() {
+  const query = `${$("warningEntityIdInput").value.trim()} ${$("mainEntityIdInput").value.trim()}`.trim();
+  const payload = await api(`api/panel-entities?query=${encodeURIComponent(query)}&limit=80`);
+  const datalist = $("panelEntitySuggestions");
+  datalist.innerHTML = (payload.entities || [])
+    .map((entry) => `<option value="${escapeHtml(entry.entity_id)}">${escapeHtml(entry.friendly_name)} [${escapeHtml(entry.state)}]</option>`)
+    .join("");
+}
+
+function schedulePanelEntitySuggestionFetch() {
+  clearTimeout(state.panelSuggestionTimer);
+  state.panelSuggestionTimer = setTimeout(() => {
+    refreshPanelEntitySuggestions().catch((error) => showNotice(error.message, true));
+  }, 180);
+}
+
 async function postAction(path, body) {
   const payload = await api(path, { method: "POST", body });
   if (payload.config && payload.status) {
@@ -298,17 +447,21 @@ function getEntityCard(entityId) {
 
 function getEntityPatch(entityId) {
   const card = getEntityCard(entityId);
-  const triggerStates = card
-    .querySelector('[data-field="triggerStates"]')
-    .value.split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean);
   return {
     immediate: card.querySelector('[data-field="immediate"]').checked,
     message: card.querySelector('[data-field="message"]').value.trim(),
     messageTts: card.querySelector('[data-field="messageTts"]').value.trim(),
-    triggerStates
+    triggerStates: parseStateList(card.querySelector('[data-field="triggerStates"]').value),
+    fromStates: parseStateList(card.querySelector('[data-field="fromStates"]').value)
   };
+}
+
+async function updateProfileMembership(profileId, entityId, enabled) {
+  const payload = await api(`api/profiles/${encodeURIComponent(profileId)}/entities/${encodeURIComponent(entityId)}`, {
+    method: "POST",
+    body: { enabled }
+  });
+  applyBootstrap(payload);
 }
 
 function registerEventHandlers() {
@@ -357,6 +510,9 @@ function registerEventHandlers() {
       showNotice(error.message, true);
     }
   });
+
+  $("warningEntityIdInput").addEventListener("input", schedulePanelEntitySuggestionFetch);
+  $("mainEntityIdInput").addEventListener("input", schedulePanelEntitySuggestionFetch);
 
   $("addProfileButton").addEventListener("click", async () => {
     try {
@@ -444,8 +600,25 @@ function registerEventHandlers() {
     if (!actionButton) {
       return;
     }
+
     const entityId = actionButton.dataset.entityId;
     try {
+      if (actionButton.dataset.action === "toggle-state") {
+        const card = getEntityCard(entityId);
+        const fieldName = actionButton.dataset.field;
+        const stateValue = String(actionButton.dataset.state || "").toLowerCase();
+        const input = card.querySelector(`[data-field="${fieldName}"]`);
+        const current = new Set(parseStateList(input.value));
+        if (current.has(stateValue)) {
+          current.delete(stateValue);
+        } else {
+          current.add(stateValue);
+        }
+        writeStateList(input, [...current]);
+        actionButton.classList.toggle("state-pill-active", current.has(stateValue));
+        return;
+      }
+
       if (actionButton.dataset.action === "save-entity") {
         const payload = await api(`api/monitored/${encodeURIComponent(entityId)}`, {
           method: "PATCH",
@@ -485,21 +658,82 @@ function registerEventHandlers() {
       return;
     }
     try {
-      const payload = await api(
-        `api/profiles/${encodeURIComponent(checkbox.dataset.profileId)}/entities/${encodeURIComponent(
-          checkbox.dataset.entityId
-        )}`,
-        {
-          method: "POST",
-          body: {
-            enabled: checkbox.checked
-          }
-        }
-      );
-      applyBootstrap(payload);
+      await updateProfileMembership(checkbox.dataset.profileId, checkbox.dataset.entityId, checkbox.checked);
     } catch (error) {
       showNotice(error.message, true);
       checkbox.checked = !checkbox.checked;
+    }
+  });
+
+  $("profileBoardTabs").addEventListener("click", (event) => {
+    const button = event.target.closest('[data-action="select-board-profile"]');
+    if (!button) {
+      return;
+    }
+    state.boardProfileId = button.dataset.profileId;
+    renderProfileBoard();
+  });
+
+  $("profileBoard").addEventListener("click", async (event) => {
+    const button = event.target.closest('[data-action="board-move"]');
+    if (!button) {
+      return;
+    }
+    const profileId = state.boardProfileId;
+    const entityId = button.dataset.entityId;
+    const targetZone = button.dataset.targetZone;
+    try {
+      await updateProfileMembership(profileId, entityId, targetZone === "active");
+      showNotice(targetZone === "active" ? "Entity restored to profile." : "Entity moved to quarantine.");
+    } catch (error) {
+      showNotice(error.message, true);
+    }
+  });
+
+  $("profileBoard").addEventListener("dragstart", (event) => {
+    const item = event.target.closest(".board-item");
+    if (!item) {
+      return;
+    }
+    event.dataTransfer.setData("text/plain", item.dataset.entityId);
+    event.dataTransfer.effectAllowed = "move";
+  });
+
+  $("profileBoard").addEventListener("dragover", (event) => {
+    const zone = event.target.closest(".board-zone");
+    if (!zone) {
+      return;
+    }
+    event.preventDefault();
+    zone.classList.add("board-zone-hover");
+  });
+
+  $("profileBoard").addEventListener("dragleave", (event) => {
+    const zone = event.target.closest(".board-zone");
+    if (!zone) {
+      return;
+    }
+    zone.classList.remove("board-zone-hover");
+  });
+
+  $("profileBoard").addEventListener("drop", async (event) => {
+    const zone = event.target.closest(".board-zone");
+    if (!zone) {
+      return;
+    }
+    event.preventDefault();
+    zone.classList.remove("board-zone-hover");
+
+    const entityId = event.dataTransfer.getData("text/plain");
+    if (!entityId) {
+      return;
+    }
+
+    try {
+      await updateProfileMembership(zone.dataset.profileId, entityId, zone.dataset.zone === "active");
+      showNotice(zone.dataset.zone === "active" ? "Entity restored to profile." : "Entity moved to quarantine.");
+    } catch (error) {
+      showNotice(error.message, true);
     }
   });
 }
@@ -543,6 +777,7 @@ async function init() {
   registerEventHandlers();
   await refreshBootstrap();
   await searchEntities();
+  await refreshPanelEntitySuggestions();
   connectEventStream();
 }
 

@@ -93,14 +93,15 @@
           <div class="form-grid panel-grid">
             <label>
               Warning panel entity_id
-              <input id="warningEntityIdInput" type="text" />
+              <input id="warningEntityIdInput" type="text" list="panelEntitySuggestions" />
             </label>
             <label>
               Main panel entity_id
-              <input id="mainEntityIdInput" type="text" />
+              <input id="mainEntityIdInput" type="text" list="panelEntitySuggestions" />
             </label>
             <button id="savePanelEntitiesButton" class="btn btn-secondary">Save panel IDs</button>
           </div>
+          <datalist id="panelEntitySuggestions"></datalist>
         </article>
 
         <article class="card">
@@ -125,6 +126,15 @@
       <section class="card">
         <h2>Monitored Triggers</h2>
         <div id="monitoredContainer" class="monitored-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>Profile Board (Drag and Drop)</h2>
+        <p class="helper">
+          Drag entities between <strong>Active</strong> and <strong>Quarantine</strong>. Tabs switch profile context.
+        </p>
+        <div id="profileBoardTabs" class="profile-tabs"></div>
+        <div id="profileBoard" class="profile-board"></div>
       </section>
     </main>
 

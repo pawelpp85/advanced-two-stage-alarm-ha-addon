@@ -67,6 +67,23 @@ async function bootstrap() {
     });
   });
 
+  app.get("/api/entities/:entityId/states", (req, res) => {
+    const entityId = decodeURIComponent(req.params.entityId);
+    res.json({
+      ok: true,
+      states: engine.getEntityStateOptions(entityId)
+    });
+  });
+
+  app.get("/api/panel-entities", (req, res) => {
+    const query = String(req.query.query || "");
+    const limit = Number(req.query.limit || 50);
+    res.json({
+      ok: true,
+      entities: engine.searchAlarmPanels(query, limit)
+    });
+  });
+
   app.get("/api/suggest-message", (req, res) => {
     const entityId = String(req.query.entity_id || "").toLowerCase();
     const language = String(req.query.lang || "en");

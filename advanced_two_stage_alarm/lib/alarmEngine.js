@@ -72,6 +72,8 @@ class TwoStageAlarmEngine extends EventEmitter {
     this.entityRegistryById = new Map();
     this.deviceRegistryById = new Map();
     this.areaRegistryById = new Map();
+    this.observedStatesByEntity = new Map();
+    this.transitionLatchedEntities = new Set();
 
     this.currentTriggerSummary = {
       display: "",
@@ -133,7 +135,8 @@ class TwoStageAlarmEngine extends EventEmitter {
     const config = this.getConfig();
     const monitored = config.monitoredEntities.map((entry) => ({
       ...entry,
-      details: this.getEntityDetails(entry.entity_id)
+      details: this.getEntityDetails(entry.entity_id),
+      stateOptions: this.getEntityStateOptions(entry.entity_id)
     }));
     return {
       config,
@@ -269,7 +272,8 @@ class TwoStageAlarmEngine extends EventEmitter {
           immediate: Boolean(immediate),
           message: "",
           messageTts: "",
-          triggerStates: []
+          triggerStates: [],
+          fromStates: []
         });
       }
       for (const profile of draft.profiles) {
@@ -299,6 +303,9 @@ class TwoStageAlarmEngine extends EventEmitter {
       }
       if (Object.prototype.hasOwnProperty.call(patch, "triggerStates")) {
         entity.triggerStates = [...new Set((patch.triggerStates || []).map((state) => toLower(state)).filter(Boolean))];
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "fromStates")) {
+        entity.fromStates = [...new Set((patch.fromStates || []).map((state) => toLower(state)).filter(Boolean))];
       }
       return draft;
     });
@@ -366,6 +373,56 @@ class TwoStageAlarmEngine extends EventEmitter {
       model: deviceRecord?.model || "",
       icon: attrs.icon || ""
     };
+  }
+
+  getEntityStateOptions(entityId) {
+    const normalizedEntityId = toLower(entityId);
+    const observed = this.observedStatesByEntity.get(normalizedEntityId) || new Set();
+    const details = this.getEntityDetails(normalizedEntityId);
+    const domain = details.domain;
+    const defaults = new Set();
+
+    if (domain === "binary_sensor" || domain === "group" || domain === "input_boolean") {
+      defaults.add("on");
+      defaults.add("off");
+    } else if (domain === "cover") {
+      defaults.add("open");
+      defaults.add("closed");
+      defaults.add("opening");
+      defaults.add("closing");
+    } else if (domain === "lock") {
+      defaults.add("locked");
+      defaults.add("unlocked");
+    } else {
+      defaults.add(String(details.state || "unknown").toLowerCase());
+    }
+
+    const union = new Set([...defaults, ...observed]);
+    return [...union].filter(Boolean).sort();
+  }
+
+  searchAlarmPanels(query, limit = 50) {
+    const tokens = String(query || "")
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    const matches = [];
+
+    for (const entityId of this.entityStates.keys()) {
+      if (!entityId.startsWith("alarm_control_panel.")) {
+        continue;
+      }
+      const details = this.getEntityDetails(entityId);
+      const haystack = `${details.entity_id} ${details.friendly_name} ${details.state} ${details.area_name} ${details.device_name}`.toLowerCase();
+      if (tokens.some((token) => !haystack.includes(token))) {
+        continue;
+      }
+      matches.push(details);
+    }
+
+    matches.sort((a, b) => a.friendly_name.localeCompare(b.friendly_name));
+    return matches.slice(0, Math.max(1, Number(limit) || 50));
   }
 
   searchEntities(query, limit = 120) {
@@ -438,8 +495,12 @@ class TwoStageAlarmEngine extends EventEmitter {
     try {
       const states = await this.haClient.getStates();
       this.entityStates.clear();
+      this.observedStatesByEntity.clear();
+      this.transitionLatchedEntities.clear();
       for (const stateObject of states || []) {
-        this.entityStates.set(toLower(stateObject.entity_id), stateObject);
+        const entityId = toLower(stateObject.entity_id);
+        this.entityStates.set(entityId, stateObject);
+        this._rememberObservedState(entityId, stateObject.state);
       }
 
       try {
@@ -462,6 +523,7 @@ class TwoStageAlarmEngine extends EventEmitter {
       }
 
       await this.haClient.ensureEventSubscription();
+      this._rebuildTransitionLatches();
       this._evaluate();
       this._queuePublish();
       this.emit("status_changed", this.getStatus());
@@ -478,12 +540,15 @@ class TwoStageAlarmEngine extends EventEmitter {
     if (!entityId) {
       return;
     }
+    const previousStateObject = this.entityStates.get(entityId) || null;
     const nextState = eventPayload?.data?.new_state;
     if (nextState) {
       this.entityStates.set(entityId, nextState);
+      this._rememberObservedState(entityId, nextState.state);
     } else {
       this.entityStates.delete(entityId);
     }
+    this._updateTransitionLatch(entityId, previousStateObject, nextState);
     this._evaluate();
   }
 
@@ -492,6 +557,7 @@ class TwoStageAlarmEngine extends EventEmitter {
     const nextDraft = mutator(draft);
     const nextConfig = await this.store.save(normalizeConfig(nextDraft));
     this.config = nextConfig;
+    this._rebuildTransitionLatches();
     this._evaluate();
     this._queuePublish();
     this.emit("config_changed", this.getBootstrap());
@@ -651,6 +717,55 @@ class TwoStageAlarmEngine extends EventEmitter {
     this.mainDeadline = null;
   }
 
+  _rememberObservedState(entityId, stateValue) {
+    const normalizedEntityId = toLower(entityId);
+    const normalizedState = toLower(stateValue);
+    if (!normalizedEntityId || !normalizedState) {
+      return;
+    }
+    if (!this.observedStatesByEntity.has(normalizedEntityId)) {
+      this.observedStatesByEntity.set(normalizedEntityId, new Set());
+    }
+    this.observedStatesByEntity.get(normalizedEntityId).add(normalizedState);
+  }
+
+  _rebuildTransitionLatches() {
+    const next = new Set();
+    for (const monitored of this.config.monitoredEntities) {
+      if (!monitored.fromStates?.length) {
+        continue;
+      }
+      const stateObject = this.entityStates.get(monitored.entity_id);
+      if (!this._matchesTriggerState(monitored, stateObject)) {
+        continue;
+      }
+      if (this.transitionLatchedEntities.has(monitored.entity_id)) {
+        next.add(monitored.entity_id);
+      }
+    }
+    this.transitionLatchedEntities = next;
+  }
+
+  _updateTransitionLatch(entityId, previousStateObject, nextStateObject) {
+    const monitored = this.config.monitoredEntities.find((entry) => entry.entity_id === entityId);
+    if (!monitored || !monitored.fromStates?.length) {
+      this.transitionLatchedEntities.delete(entityId);
+      return;
+    }
+
+    const toStateMatches = this._matchesTriggerState(monitored, nextStateObject);
+    if (!toStateMatches) {
+      this.transitionLatchedEntities.delete(entityId);
+      return;
+    }
+
+    const previousState = toLower(previousStateObject?.state);
+    const fromStates = new Set((monitored.fromStates || []).map((value) => toLower(value)));
+    if (fromStates.has(previousState)) {
+      this.transitionLatchedEntities.add(entityId);
+    }
+  }
+
   _getActiveTriggers() {
     const activeProfile = this.config.profiles.find((profile) => profile.id === this.config.activeProfileId) || this.config.profiles[0];
     const enabled = new Set((activeProfile?.enabledEntities || []).map((entityId) => toLower(entityId)));
@@ -679,6 +794,16 @@ class TwoStageAlarmEngine extends EventEmitter {
   }
 
   _isTriggered(monitored, stateObject) {
+    if (!monitored.fromStates?.length) {
+      return this._matchesTriggerState(monitored, stateObject);
+    }
+    if (!this.transitionLatchedEntities.has(monitored.entity_id)) {
+      return false;
+    }
+    return this._matchesTriggerState(monitored, stateObject);
+  }
+
+  _matchesTriggerState(monitored, stateObject) {
     if (!stateObject) {
       return false;
     }

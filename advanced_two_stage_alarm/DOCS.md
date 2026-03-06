@@ -9,7 +9,7 @@ Two-stage alarm manager for Home Assistant with:
 
 ## Release Status
 
-- Current version: `0.0.1b3`
+- Current version: `0.0.1b4`
 - Channel: `beta`
 - Repository: `git@github-nuc:pawelpp85/advanced-two-stage-alarm-ha-addon.git`
 

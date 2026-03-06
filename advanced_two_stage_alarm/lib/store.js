@@ -48,7 +48,8 @@ function normalizeConfig(input) {
       immediate: Boolean(source.immediate),
       message: String(source.message || "").trim(),
       messageTts: String(source.messageTts || "").trim(),
-      triggerStates: dedupeStrings(source.triggerStates || []).map((x) => x.toLowerCase())
+      triggerStates: dedupeStrings(source.triggerStates || []).map((x) => x.toLowerCase()),
+      fromStates: dedupeStrings(source.fromStates || []).map((x) => x.toLowerCase())
     };
   });
 

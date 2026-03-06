@@ -304,6 +304,25 @@ pre.text-box {
   gap: 0.5rem;
 }
 
+.entity-head-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.inline-check {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--text-subtle);
+}
+
+.inline-check input {
+  width: auto;
+}
+
 .entity-title {
   margin: 0;
   font-weight: 700;
@@ -332,6 +351,101 @@ pre.text-box {
   display: flex;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+.state-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.state-pill {
+  border: 1px solid var(--ha-border);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 0.24rem 0.65rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.state-pill-active {
+  background: rgba(47, 129, 157, 0.35);
+  border-color: rgba(47, 129, 157, 0.85);
+}
+
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.8rem;
+}
+
+.profile-tab {
+  border: 1px solid var(--ha-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  border-radius: 10px;
+  padding: 0.4rem 0.72rem;
+  cursor: pointer;
+}
+
+.profile-tab-active {
+  border-color: rgba(47, 129, 157, 0.9);
+  background: rgba(47, 129, 157, 0.35);
+}
+
+.profile-board {
+  display: grid;
+}
+
+.board-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.board-column {
+  border: 1px solid var(--ha-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.65rem;
+  min-height: 220px;
+}
+
+.board-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.board-column-header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.board-zone {
+  min-height: 120px;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.board-zone-hover {
+  outline: 2px dashed rgba(47, 129, 157, 0.9);
+  border-radius: 10px;
+}
+
+.board-item {
+  border: 1px solid var(--ha-border);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
 }
 
 .check-pill {
@@ -433,7 +547,8 @@ pre.text-box {
   .states,
   .form-grid,
   .entity-meta-row,
-  .profile-item {
+  .profile-item,
+  .board-columns {
     grid-template-columns: 1fr;
   }
 
